@@ -18,6 +18,12 @@ This analysis is powered by [bblfshd](https://bblf.sh) (pronounced babelfish). I
 * Assumes bblfshd is running on localhost:9432, see [their docs on getting started](https://doc.bblf.sh/user/getting-started.html)
 * Need to have a checkout of the [Elasticsearch codebase](https://github.com/elastic/elasticsearch) somewhere on disk
 
+### Building and running
+
+* `cd` into `cmd/elasticsearch-bblfsh`
+* `go build` will make the `elasticsearch-bblfsh` executable
+* `./elasticsearch-bblfsh` will create `elasticsearchSettings.json` with all of the settings found 
+
 ## Caveats
 
 This was a fun experiment for me. I'm very new at writing go code and it's probably all wrong. Use at your own risk.
