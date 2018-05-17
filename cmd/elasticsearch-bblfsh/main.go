@@ -139,14 +139,14 @@ func getDefaultArg(node *uast.Node) string {
 }
 
 type ElasticsearchSetting struct {
-  Name string
-  RawName string
-  JavaType string
-  Properties []string
-  DefaultArg string
+  Name string `json:"name"`
+  RawName string `json:"raw_name"`
+  JavaType string `json:"java_type"`
+  Properties []string `json:"properties"`
+  DefaultArg string `json:"default_arg"`
 
-  CodeLine uint32
-  CodeFile string
+  CodeLine uint32 `json:"code_line"`
+  CodeFile string `json:"code_file"`
 }
 
 func getSettings(rootNode *uast.Node, fileName string) ([]ElasticsearchSetting) {
@@ -171,11 +171,11 @@ func getSettings(rootNode *uast.Node, fileName string) ([]ElasticsearchSetting) 
       relativeFilePath := path.Join(strings.Split(fileName, "/")[len(strings.Split(rootDir, "/")):]...)
 
       setting := ElasticsearchSetting{
-        Name: settingName,
+        Name: strings.Trim(settingName, "\""),
         RawName: rawSettingName,
         JavaType: settingType,
         Properties: settingProperties,
-        DefaultArg: defaultArg,
+        DefaultArg: strings.Trim(defaultArg, "\""),
         CodeLine: n.StartPosition.Line,
         CodeFile: relativeFilePath}
 
