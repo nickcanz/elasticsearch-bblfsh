@@ -1,14 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
-  "path"
-  "path/filepath"
+	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
-  "encoding/json"
-  "io/ioutil"
 
 	"gopkg.in/bblfsh/client-go.v2"
 	"gopkg.in/bblfsh/client-go.v2/tools"
@@ -34,12 +34,12 @@ func getType(node *uast.Node) string {
 	if len(typeNode) > 0 {
 		return typeNode[0].Token
 	} else {
-    nestedTypeNodes, _ := tools.Filter(node, nestedTypeQuery)
+		nestedTypeNodes, _ := tools.Filter(node, nestedTypeQuery)
 
-    var nestedTypes []string
-    for _, nestedNode := range nestedTypeNodes {
-      nestedTypes = append(nestedTypes, nestedNode.Children[0].Token)
-    }
+		var nestedTypes []string
+		for _, nestedNode := range nestedTypeNodes {
+			nestedTypes = append(nestedTypes, nestedNode.Children[0].Token)
+		}
 
 		return strings.Join(nestedTypes, " of ")
 	}
@@ -139,21 +139,21 @@ func getDefaultArg(node *uast.Node) string {
 }
 
 type ElasticsearchSetting struct {
-  Name string `json:"name"`
-  RawName string `json:"raw_name"`
-  JavaType string `json:"java_type"`
-  Properties []string `json:"properties"`
-  DefaultArg string `json:"default_arg"`
+	Name       string   `json:"name"`
+	RawName    string   `json:"raw_name"`
+	JavaType   string   `json:"java_type"`
+	Properties []string `json:"properties"`
+	DefaultArg string   `json:"default_arg"`
 
-  CodeLine uint32 `json:"code_line"`
-  CodeFile string `json:"code_file"`
+	CodeLine uint32 `json:"code_line"`
+	CodeFile string `json:"code_file"`
 }
 
-func getSettings(rootNode *uast.Node, fileName string) ([]ElasticsearchSetting) {
+func getSettings(rootNode *uast.Node, fileName string) []ElasticsearchSetting {
 	query := "//FieldDeclaration/ParameterizedType/SimpleType/SimpleName[@token='Setting']/../../.."
 	nodes, _ := tools.Filter(rootNode, query)
 
-  var settings []ElasticsearchSetting
+	var settings []ElasticsearchSetting
 
 	for _, n := range nodes {
 		rawSettingName := getRawName(n)
@@ -161,31 +161,30 @@ func getSettings(rootNode *uast.Node, fileName string) ([]ElasticsearchSetting) 
 
 		argumentNodes := getArguments(n)
 
-    if len(argumentNodes) > 2 {
+		if len(argumentNodes) > 2 {
 
-      settingName := argumentNodes[0].Token
-      defaultArg := getDefaultArg(argumentNodes[1])
-      settingProperties := getSettingProperties(argumentNodes)
+			settingName := argumentNodes[0].Token
+			defaultArg := getDefaultArg(argumentNodes[1])
+			settingProperties := getSettingProperties(argumentNodes)
 
+			relativeFilePath := path.Join(strings.Split(fileName, "/")[len(strings.Split(rootDir, "/")):]...)
 
-      relativeFilePath := path.Join(strings.Split(fileName, "/")[len(strings.Split(rootDir, "/")):]...)
+			setting := ElasticsearchSetting{
+				Name:       strings.Trim(settingName, "\""),
+				RawName:    rawSettingName,
+				JavaType:   settingType,
+				Properties: settingProperties,
+				DefaultArg: strings.Trim(defaultArg, "\""),
+				CodeLine:   n.StartPosition.Line,
+				CodeFile:   relativeFilePath}
 
-      setting := ElasticsearchSetting{
-        Name: strings.Trim(settingName, "\""),
-        RawName: rawSettingName,
-        JavaType: settingType,
-        Properties: settingProperties,
-        DefaultArg: strings.Trim(defaultArg, "\""),
-        CodeLine: n.StartPosition.Line,
-        CodeFile: relativeFilePath}
-
-      settings = append(settings, setting)
-    } else {
-      fmt.Errorf("Problem with %v", rawSettingName)
-    }
+			settings = append(settings, setting)
+		} else {
+			fmt.Errorf("Problem with %v", rawSettingName)
+		}
 	}
 
-  return settings
+	return settings
 }
 
 var elasticsearchSettings []ElasticsearchSetting
@@ -193,39 +192,39 @@ var bblfshClient *bblfsh.Client
 var rootDir string
 
 func processFile(filePath string, info os.FileInfo, err error) error {
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 
-  if !info.IsDir() && path.Ext(filePath) == ".java" {
-    if err != nil {
-      panic(err)
-    }
-    res, err := bblfshClient.NewParseRequest().ReadFile(filePath).Do()
-    if err != nil {
-      panic(err)
-    }
-    if reflect.TypeOf(res.UAST).Name() != "Node" {
-      fmt.Errorf("Node must be the root of a UAST")
-    }
+	if !info.IsDir() && path.Ext(filePath) == ".java" {
+		if err != nil {
+			panic(err)
+		}
+		res, err := bblfshClient.NewParseRequest().ReadFile(filePath).Do()
+		if err != nil {
+			panic(err)
+		}
+		if reflect.TypeOf(res.UAST).Name() != "Node" {
+			fmt.Errorf("Node must be the root of a UAST")
+		}
 
-    settings := getSettings(res.UAST, filePath)
-    elasticsearchSettings = append(elasticsearchSettings, settings...)
-  }
+		settings := getSettings(res.UAST, filePath)
+		elasticsearchSettings = append(elasticsearchSettings, settings...)
+	}
 
-  return nil
+	return nil
 }
 
 func main() {
-  client, _ := bblfsh.NewClient("localhost:9432")
-  bblfshClient = client
-  rootDir = "/home/nick/personal/elasticsearch"
-  err := filepath.Walk(path.Join(rootDir, "server", "src", "main", "java", "org", "elasticsearch"), processFile)
-  if err != nil {
-    panic(err)
-  }
+	client, _ := bblfsh.NewClient("localhost:9432")
+	bblfshClient = client
+	rootDir = "/home/nick/personal/elasticsearch"
+	err := filepath.Walk(path.Join(rootDir, "server", "src", "main", "java", "org", "elasticsearch"), processFile)
+	if err != nil {
+		panic(err)
+	}
 
-  b, _ := json.Marshal(elasticsearchSettings)
+	b, _ := json.Marshal(elasticsearchSettings)
 
-  err = ioutil.WriteFile("elasticsearchSettings.json", b, 0644)
+	err = ioutil.WriteFile("elasticsearchSettings.json", b, 0644)
 }
