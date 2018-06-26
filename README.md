@@ -2,6 +2,8 @@
 
 "Code as data" can be a powerful idea, but I don't think there are many concrete examples. To explore this concept, I used [bblfshd](https://bblf.sh) to analyze the Elasticsearch code base to get a full list of all the configurable settings in Elasticsearch.
 
+[Take a look at the generated settings here.](https://nickcanzoneri.com/elasticsearch-settings/)
+
 ## The problem space
 
 Elasticsearch has a lot of configurable settings and they aren't fully listed anywhere. Some are dynamic, some are not. I wanted to explore how to get **all** of the settings and their properties to see what I could do. 
